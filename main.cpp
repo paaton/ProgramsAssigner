@@ -24,10 +24,12 @@ class Lecture {
 public:
     int id;
     string name;
+    string time;
     int capacity;
-    Lecture(int id, string name, int capacity) {
+    Lecture(int id, string name, string time, int capacity) {
         this->id = id;
         this->name = name;
+        this->time = time;
         this->capacity = capacity;
     }
 };
@@ -48,7 +50,7 @@ vector<Block> import_blocks(string import_file) {
     Block seminare = Block(1, {}, 0);
     CSVReader reader(import_file);
     for (CSVRow& row : reader) {
-        Lecture l = Lecture(row["id"].get<int>(), row["name"].get<string>(), row["capacity"].get<int>());
+        Lecture l = Lecture(row["id"].get<int>(), row["name"].get<string>(), row["time"].get<string>(), row["capacity"].get<int>());
         if (row["type"].get<int>() == 1) {
             sluzba.lectures.push_back(l);
         } else {
@@ -60,11 +62,15 @@ vector<Block> import_blocks(string import_file) {
 vector<User> import_users(string import_file, vector<Block> blocks_to_pair) {
     vector<User> imported_users;
     CSVReader reader(import_file);
+    int helpvar;
     for (CSVRow& row : reader) {
+        if (row["id"].get<string>() == "") { continue;}
         User new_user = User(row["id"].get<int>(), {}, row["tiecode"].get<string>());
         for (Block block : blocks_to_pair) {
             for (Lecture lecture : block.lectures) {
-                new_user.likes.push_back(row[lecture.name].get<int>());
+                if (row[lecture.name].get<string>() == "") { helpvar = 3;}
+                else {helpvar = row[lecture.name].get<int>();}
+                new_user.likes.push_back(helpvar);
             }
         }
         imported_users.push_back(new_user);
@@ -72,6 +78,25 @@ vector<User> import_users(string import_file, vector<Block> blocks_to_pair) {
     return imported_users;
 }
 
+int export_block(Block block, vector<vector<vector<MPVariable*>>> result, vector<User> users) {
+    //invoke write stream
+    ofstream ofile(to_string(block.type)  + ".csv");
+    CSVWriter<ofstream> writer(ofile);
+
+    // columns
+    writer << vector<string>({"uid", "user_like""user_TIE", "lecture_id", "lecture_name", "lecture_time"});
+    // write data
+    Lecture user_lecture(-1, "", "", 0);
+    for (User u : users) {
+        for (Lecture l : block.lectures) {
+            if (result[block.id][u.id][l.id]->solution_value() == 1) {user_lecture = l; break;}
+        }
+        if (user_lecture.id != -1) {
+            writer << vector<string>({to_string(u.id), to_string(u.likes[user_lecture.id]),u.TIE, to_string(user_lecture.id), user_lecture.name, user_lecture.time});
+        }
+    }
+    return 0;
+}
 int main() {
 
     //import
@@ -113,12 +138,15 @@ int main() {
         blocks.push_back(b);
     } */
 
-
+    //transpose data (1->5 => 5->1)
+    for (auto&& u : users) {
+        for (auto&& like : u.likes) {
+            like = abs(like-6);
+        }
+    }
 
     // Create the solver
     MPSolver solver("Lecture_Assignment", MPSolver::CBC_MIXED_INTEGER_PROGRAMMING);
-
-
 
     vector<vector<vector<MPVariable*>>> x(num_program_blocks,
     vector<vector<MPVariable*>>(num_users,
@@ -173,7 +201,13 @@ int main() {
 
     if (result_status == MPSolver::OPTIMAL) {
         cout << "Optimal solution found:" << endl;
+        //write results to files
+        for (Block b : blocks) {
+            export_block(b, x, users);
+        }
+        /*
         for (User i : users) {
+
             string un;
             string deux;
             int happiness = 0;
@@ -186,13 +220,13 @@ int main() {
                     happiness += x[p.id][i.id][j.id]->solution_value()*i.likes[j.id];
                 }
             }
-            cout << i.TIE << "\n" << un << "\n" << deux << "\n " << to_string(happiness)<<" \n\n";
+            //cout << i.TIE << "\n" << un << "\n" << deux << "\n " << to_string(happiness)<<" \n\n";
+        }*/
 
-        }
     } else {
         cout << to_string(result_status);
         cerr << "No optimal solution found." << endl; // this cant happen with this optimization f.- TODO: replace with debug print
     }
 
     return 0;
-    }
+}
