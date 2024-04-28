@@ -7,9 +7,6 @@
 - celkové funguje optimalizace dle maximalizace průměru přiřazených programů
 - importuje csv programů a uživatelů
 - exportuje pro každý programový blok vlastní seznam uživatelů s přiřazenými programy
-### Co je navíc a bude se mazat
-- cokoliv, kde je napsaáno Ropro, RGroups, atd.
-  - zjistil jsem, že se to dá udělat jinak mimo tento program
 ### Co chybí
 - "degradace odpovědi 1", resp. upscaling/mapping odpovědí tak, aby se co nejméně stávalo, že někdo dostane program, kde měl známku "1"
 ### nice to have věci
