@@ -1,21 +1,23 @@
 //
 // Created by Ondřej Paatz on 02.05.2024.
 //
+#include <iostream>
+#include <vector>
+using namespace std;
 
 #ifndef PROGRAMSWITHOR_CLASSES_H
 #define PROGRAMSWITHOR_CLASSES_H
 
 #endif //PROGRAMSWITHOR_CLASSES_H
-#include <iostream>
-#include <vector>
 
-using namespace std;
+
+
 class User {
 public:
     vector<int> likes;
     int id;
     string TIE;
-    User(int id, vector<int> likes, string TIE);6
+    User(int id, vector<int> likes, string TIE);
 
 };
 
@@ -54,3 +56,7 @@ public:
     string type;
     RGroup(int id, string publicId, vector<RUser> users, string type);
 };
+
+vector<Block> import_blocks(string import_file);
+vector<string> userExportColumns();
+vector<string> putovaniTies();

@@ -8,20 +8,7 @@ using namespace operations_research;
 using namespace std;
 using namespace csv;
 
-vector<Block> import_blocks(string import_file) {
-    Block sluzba = Block(0, {}, 1);
-    Block seminare = Block(1, {}, 0);
-    CSVReader reader(import_file);
-    for (CSVRow& row : reader) {
-        Lecture l = Lecture(row["id"].get<int>(), row["name"].get<string>(), row["time"].get<string>(), row["time2"].get<string>(), row["capacity"].get<int>());
-        if (row["type"].get<int>() == 1) {
-            sluzba.lectures.push_back(l);
-        } else {
-            seminare.lectures.push_back(l);
-        }
-    }
-    return {sluzba, seminare};
-}
+
 vector<User> import_users(string import_file, vector<Block> blocks_to_pair) {
     vector<User> imported_users;
     CSVReader reader(import_file);
@@ -36,6 +23,11 @@ vector<User> import_users(string import_file, vector<Block> blocks_to_pair) {
                 new_user.likes.push_back(helpvar);
             }
         }
+        //set putovani users the worst score in "sluzba sobě" TODO: can someone remake this for it to become usable code
+        vector<string> pt = putovaniTies();
+        if (count(pt.begin(), pt.end(), new_user.TIE) > 0) {
+            new_user.likes[26] = 5; //  the worst practice i could use
+        }
         imported_users.push_back(new_user);
     }
     return imported_users;
@@ -47,7 +39,7 @@ int export_block(Block block, vector<vector<vector<MPVariable*>>> result, vector
     CSVWriter<ofstream> writer(ofile);
 
     // columns
-    writer << vector<string>({"uid", "user_like","user_TIE", "lecture_id", "lecture_name", "lecture_time", "lecture_time2"});
+    writer << userExportColumns();
     // write data
     Lecture user_lecture(-1, "", "", "", 0);
     for (User u : users) {
@@ -60,7 +52,9 @@ int export_block(Block block, vector<vector<vector<MPVariable*>>> result, vector
     }
     return 0;
 }
+
 int main() {
+
 
     //import
     vector<Block> blocks = import_blocks("./blocks.csv");

@@ -15,7 +15,7 @@ using namespace csv;
 
 /*
  * expected format of csv files:
- * groups-file => int id, string tiecode, string groupid, string grouptype
+ * groups-file => string tiecode, string groupid, string grouptype
  * users_file => int uid,int user_like,string user_TIE,int lecture_id,string lecture_name,string lecture_time1, string lecture_time2*/
 vector<RGroup> import_Rgroups(string groups_file, string users_file) {
     CSVReader groupsreader(groups_file);
@@ -24,27 +24,28 @@ vector<RGroup> import_Rgroups(string groups_file, string users_file) {
     vector<RUser> imported_users = {};
 
     for (CSVRow& row : usersreader) {
-        if (row['uid'].get<string>() == "") continue;
+        if (row["uid"].get<string>() == "") continue;
         imported_users.push_back(RUser(
-                row['uid'].get<int>(),
-                row['user_TIE'].get<string>(),
-                row['lecture_id'].get<int>(),
-                row['lecture_name'].get<string>(),
-                row['lecture_time'].get<string>(),
-                row['lecture_time2'].get<string>(),
-                row['lecture_capacity'].get<int>()));
+                row["uid"].get<int>(),
+                row["user_TIE"].get<string>(),
+                row["lecture_id"].get<int>(),
+                row["lecture_name"].get<string>(),
+                row["lecture_time"].get<string>(),
+                row["lecture_time2"].get<string>(),
+                row["lecture_capacity"].get<int>()));
     }
     vector<RGroup> cache;
     string gid;
     map<string, string> TieGroupMap;
-
+    int groupIdIterator  = 0;
     for (CSVRow& row : groupsreader) {
-        gid = row['groupid'].get<string>();  // nemám tušení, jestli to výkonu pomůže, či ne :D
+        gid = row["groupid"].get<string>();  // nemám tušení, jestli to výkonu pomůže, či ne :D
         copy_if(imported_groups.begin(), imported_groups.end(), back_inserter(cache), [&gid](const RGroup& g) {return g.publicId == gid;});
         if (cache.empty()) {
-            imported_groups.push_back(RGroup(row['id'].get<int>(), row['groupid'].get<string>(), {}, row['grouptype'].get<string>()));
+            imported_groups.push_back(RGroup(groupIdIterator, row["groupid"].get<string>(), {}, row["grouptype"].get<string>()));
+            groupIdIterator++;
         }
-        TieGroupMap[row['tiecode'].get<string>()] = row['groupid'].get<string>();
+        TieGroupMap[row["tiecode"].get<string>()] = row["groupid"].get<string>();
     }
     map<string, string> TieGroupMapFiltered;
     for (RGroup &g : imported_groups) {
@@ -61,55 +62,67 @@ vector<RGroup> import_Rgroups(string groups_file, string users_file) {
 };
 
 
+int export_block_from_sluzba_division(string output_file, vector<RUser> RUsers) {
+
+    //invoke write stream
+    ofstream ofile(output_file);
+    CSVWriter<ofstream> writer(ofile);
+
+    // columns
+    writer << userExportColumns();
+
+    // write data
+    for (RUser u : RUsers) {
+        if (u.lectureInstance != 0) {
+            u.lecture.time = u.lecture.time2;
+        }
+        writer << vector<string>({to_string(u.id), "N/A",u.TIE, to_string(u.lecture.id), u.lecture.name, u.lecture.time, "N/A"});
+     }
+    return 0;
+}
+
 
 int main() {
 
     //import
     vector<RGroup> Rgroups = import_Rgroups("./groups.csv", "./1.csv");
+    vector<Lecture> lectures = import_blocks("./blocks.csv")[0].lectures; //blocks not alwaays ordered TODO: Get "služba" block by find_if
 
     // Variables
     const int num_groups = Rgroups.size();
+    const int num_lectures = lectures.size();
+    const int max_group_size = 15;
 
     // Create the solver
     MPSolver solver("Lecture_Assignment", MPSolver::SAT_INTEGER_PROGRAMMING);
-//TODO:Remake the linear problem for division of users to "sluzba blocks" based on their Ropro group
-    /*
-    vector<vector<vector<MPVariable*>>> x(num_program_blocks,
-                                          vector<vector<MPVariable*>>(num_users,
-                                                                      vector<MPVariable*>(num_lectures)));
 
-    for (Block p : blocks) {
-        for (User i : users) {
-            for (Lecture j : p.lectures) {
-                x[p.id][i.id][j.id] = solver.MakeIntVar(0, 1, "x_" + to_string(p.id) + "_" + to_string(i.id) + "_" + to_string(j.id));
-            }
+    vector<MPVariable*> x(num_groups);
+    vector<MPVariable*> y(num_lectures);
+    // groups variable
+    for (RGroup g : Rgroups) {
+            x[g.id] = solver.MakeIntVar(0, 1, "x_" + to_string(g.id)); // works only with group itself - whole group a) goes, b) does no go (actually goes in the second Block of Sluzba
         }
-    }
 
-    //x[p][i][j] => p - program_block; i - user; j - lecture
 
-    // Objective function:
+    //x[g] => g - group;
+
+    // Objective function: TODO: rewrite to strike for lowest difference between capacity and assignment
     MPObjective* objective = solver.MutableObjective();
-    for (Block p : blocks) {
-        for (User i : users) {
-            for (Lecture j : p.lectures) {
-                objective->SetCoefficient(x[p.id][i.id][j.id], i.likes[j.id]);
-            }
+    for (const RGroup g : Rgroups) {
+            objective->SetCoefficient(x[g.id], 1);
         }
-    }
     objective->SetMaximization();
 
-    // Capacity constraints
-    for (Block p: blocks) {
-        for (Lecture j : p.lectures) {
-            MPConstraint* capacity_constraint = solver.MakeRowConstraint(0, j.capacity);
-            for (User i: users) {
-                capacity_constraint->SetCoefficient(x[p.id][i.id][j.id], 1);
+    for (Lecture l : lectures) {
+        MPConstraint *capacity_constraint = solver.MakeRowConstraint(l.capacity/2, l.capacity/2);
+        for (RGroup g : Rgroups) {
+            for (RUser u : g.users) {
+                if (u.lecture.id == l.id) {
+                    capacity_constraint->SetCoefficient(x[g.id], 1);
+                }
             }
         }
     }
-
-*/
 
     // Solve the problem
     const MPSolver::ResultStatus result_status = solver.Solve();
@@ -118,8 +131,16 @@ int main() {
 
     if (result_status == MPSolver::OPTIMAL) {
         cout << "Optimal solution found:" << endl;
-        //write results to files
-        //#TODO:export to same format as was input "users_file"
+        for (const RGroup g : Rgroups) {
+            for (RUser u : g.users) {
+                u.lectureInstance = x[g.id]->solution_value();
+            }
+
+
+        }
+
+        //write results to files TODO: export func to export sluzba block with information about time and also ropro block containing their group and
+
 
 
     } else {
