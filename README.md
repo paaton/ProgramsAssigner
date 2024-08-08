@@ -12,8 +12,4 @@
 ### nice to have věci
 - transpose, nebo spíše standardizace vstupních dat, aby skrz účastníka vždy byl průměr blízký 3.
   - některé odpovědi neopustí interval 3-5, jiní uživatelé zase nemají ani jednou 5 - zkusím to trochu srovnat do latě, uvidíme jak to bude fungovat.
-- vytvořit druhý program, který by přiřazoval putování - ušetření několika hodin práce pro tým PUTO
-  - respektuje předem dané pořadí priorit jednotlivých účastníků
-  - každý účastník má limit počtu kilometrů
-  - na jedné trase nesmí být více než 2 účastníci z jedné organizační jednotky
 
